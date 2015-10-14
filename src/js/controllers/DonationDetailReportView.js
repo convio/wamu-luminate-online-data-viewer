@@ -306,7 +306,21 @@ dataViewerControllers.controller('DonationDetailReportViewController', ['$scope'
                 };
               }
               
-              addDonation(donationData);
+              if(transactionId === originalTransactionId) {
+                if($recurringPayment.length > 0) {
+                  paymentAmount = paymentAmount * 12;
+                  paymentAmountFormatted = paymentAmount.toLocaleString('en', {
+                    style: 'currency', 
+                    currency: 'USD', 
+                    minimumFractionDigits: 2
+                  });
+                  
+                  donationData.Payment.Amount = paymentAmount;
+                  donationData.Payment['_AmountFormatted'] = paymentAmountFormatted;
+                }
+                
+                addDonation(donationData);
+              }
             });
           }
           

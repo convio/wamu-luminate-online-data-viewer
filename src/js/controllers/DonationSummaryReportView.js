@@ -343,7 +343,15 @@ dataViewerControllers.controller('DonationSummaryReportViewController', ['$scope
                 };
               }
               
-              addDonation(donationData);
+              if(transactionId === originalTransactionId) {
+                if($recurringPayment.length > 0) {
+                  paymentAmount = paymentAmount * 12;
+                  
+                  donationData.Payment.Amount = paymentAmount;
+                }
+                
+                addDonation(donationData);
+              }
             });
           }
           
