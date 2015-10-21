@@ -2,8 +2,8 @@
 
 module.exports = {
   options: {
-    appName: 'WAMU Luminate Online Data Viewer', 
-    version: '0.12.2', 
+    appName: '<%= pkg.window.title %>', 
+    version: '0.12.3', 
     platforms: [
       'win', 
       'osx'

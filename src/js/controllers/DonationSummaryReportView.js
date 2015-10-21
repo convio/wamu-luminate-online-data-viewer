@@ -1,17 +1,15 @@
-dataViewerControllers.controller('DonationSummaryReportViewController', ['$scope', 'DateRangePickerService', 'StorageService', 'WebServicesService', function($scope, DateRangePickerService, StorageService, WebServicesService) {
+dataViewerControllers.controller('DonationSummaryReportViewController', ['$scope', 'StorageService', 'DonationCampaignService', 'DonationFormService', 'DonationService', 'DateRangePickerService', 'DataTableService', function($scope, StorageService, DonationCampaignService, DonationFormService, DonationService, DateRangePickerService, DataTableService) {
   $.AdminLTE.layout.fix();
   
-  $('.daterangepicker').remove();
+  $scope.updateTime = '';
   
-  DateRangePickerService.init('#report-config-datepicker', function (start, end, label) {
-    $scope.reportconfig.datelabel = label;
-    $scope.reportconfig.startdate = start.format('YYYY-MM-DD[T]HH:mm:ssZ');
-    $scope.reportconfig.enddate = end.format('YYYY-MM-DD[T]HH:mm:ssZ');
+  var refreshUpdateTime = function() {
+    $scope.updateTime = 'Updated ' + moment().format('M/D/YYYY h:mma');
     
     if(!$scope.$$phase) {
       $scope.$apply();
     }
-  });
+  };
   
   $scope.reportconfig = $.extend({
     datelabel: 'Last 24 Hours', 
@@ -22,62 +20,43 @@ dataViewerControllers.controller('DonationSummaryReportViewController', ['$scope
     donationform: ''
   }, StorageService.getStoredData('reportconfig_donations_summary') || {});
   
+  $('.daterangepicker').remove();
+  
+  DateRangePickerService.init('#report-config-datepicker', function (start, end, label) {
+    $scope.reportconfig.datelabel = label;
+    updateDateRange(label);
+  });
+  
+  var updateDateRange = function(label) {
+    DateRangePickerService.getDatesForRange(label, function(start, end) {
+      $scope.reportconfig.startdate = start.format('YYYY-MM-DD[T]HH:mm:ssZ');
+      $scope.reportconfig.enddate = end.format('YYYY-MM-DD[T]HH:mm:ssZ');
+    });
+    
+    if(!$scope.$$phase) {
+      $scope.$apply();
+    }
+  };
+  
   $scope.donationcampaigns = [];
   
-  var addDonationCampaign = function(donationCampaign) {
+  var getDonationCampaigns = function() {
+    DonationCampaignService.getDonationCampaigns({
+      success: function(donationCampaigns) {
+        if(donationCampaigns.length > 0) {
+          $.each(donationCampaigns, function() {
+            addDonationCampaign(this);
+          });
+        }
+      }
+    });
+  }, 
+  
+  addDonationCampaign = function(donationCampaign) {
     $scope.donationcampaigns.push(donationCampaign);
     if(!$scope.$$phase) {
       $scope.$apply();
     }
-  }, 
-  
-  getDonationCampaigns = function(options) {
-    var settings = $.extend({
-      page: '1'
-    }, options || {});
-    
-    WebServicesService.query({
-      statement: 'select CampaignId, Title, IsArchived from DonationCampaign', 
-      page: settings.page, 
-      error: function() {
-        /* TODO */
-      }, 
-      success: function(response) {
-        var $faultstring = $(response).find('faultstring');
-        
-        if($faultstring.length > 0) {
-          /* TODO */
-        }
-        else {
-          var $records = $(response).find('Record');
-          
-          if($records.length === 0) {
-            /* TODO */
-          }
-          else {
-            $records.each(function() {
-              var campaignId = $(this).find('CampaignId').text(), 
-              campaignTitle = $(this).find('Title').text(), 
-              campaignIsArchived = $(this).find('IsArchived').text() === 'true';
-              
-              var campaignData = {
-                'CampaignId': campaignId, 
-                'Title': campaignTitle, 
-                'IsArchived': campaignIsArchived
-              };
-              
-              addDonationCampaign(campaignData);
-            });
-          }
-          
-          if($records.length === 200) {
-            getDonationCampaigns({
-              page: '' + (Number(settings.page) + 1)
-            });
-          }
-        }
-      }
-    });
   };
   
   getDonationCampaigns();
@@ -90,64 +69,23 @@ dataViewerControllers.controller('DonationSummaryReportViewController', ['$scope
   
   $scope.donationforms = [];
   
-  var addDonationForm = function(donationForm) {
+  var getDonationForms = function() {
+    DonationFormService.getDonationForms({
+      success: function(donationForms) {
+        if(donationForms.length > 0) {
+          $.each(donationForms, function() {
+            addDonationForm(this);
+          });
+        }
+      }
+    });
+  }, 
+  
+  addDonationForm = function(donationForm) {
     $scope.donationforms.push(donationForm);
     if(!$scope.$$phase) {
       $scope.$apply();
     }
-  }, 
-  
-  getDonationForms = function(options) {
-    var settings = $.extend({
-      page: '1'
-    }, options || {});
-    
-    WebServicesService.query({
-      statement: 'select FormId, CampaignId, Title, IsPublished, IsArchived from DonationForm', 
-      page: settings.page, 
-      error: function() {
-        /* TODO */
-      }, 
-      success: function(response) {
-        var $faultstring = $(response).find('faultstring');
-        
-        if($faultstring.length > 0) {
-          /* TODO */
-        }
-        else {
-          var $records = $(response).find('Record');
-          
-          if($records.length === 0) {
-            /* TODO */
-          }
-          else {
-            $records.each(function() {
-              var formId = $(this).find('FormId').text(), 
-              campaignId = $(this).find('CampaignId').text(), 
-              formTitle = $(this).find('Title').text(), 
-              formIsPublished = $(this).find('IsPublished').text() === 'true', 
-              formIsArchived = $(this).find('IsArchived').text() === 'true';
-              
-              var formData = {
-                'FormId': formId, 
-                'CampaignId': campaignId, 
-                'Title': formTitle, 
-                'IsPublished': formIsPublished, 
-                'IsArchived': formIsArchived
-              };
-              
-              addDonationForm(formData);
-            });
-          }
-          
-          if($records.length === 200) {
-            getDonationForms({
-              page: '' + (Number(settings.page) + 1)
-            });
-          }
-        }
-      }
-    });
   };
   
   getDonationForms();
@@ -156,11 +94,40 @@ dataViewerControllers.controller('DonationSummaryReportViewController', ['$scope
   
   $scope.donationsums = [];
   
-  var addDonation = function(donation) {
+  var getDonationSums = function(options) {
+    DonationService.getDonations({
+      startDate: $scope.reportconfig.startdate, 
+      endDate: $scope.reportconfig.enddate, 
+      campaignId: $scope.reportconfig.donationcampaign, 
+      formId: $scope.reportconfig.donationform, 
+      success: function(donations) {
+        if($scope.$location.path() === '/report-donations-summary') {
+          DataTableService.destroy('.report-table');
+          
+          if(donations.length > 0) {
+            $.each(donations, function() {
+              addDonation(this);
+            });
+          }
+          
+          DataTableService.init('.report-table');
+        }
+      }, 
+      complete: function() {
+        if($scope.$location.path() === '/report-donations-summary') {
+          refreshUpdateTime();
+          
+          $('.content .js--loading-overlay').addClass('hidden');
+        }
+      }
+    });
+  }, 
+  
+  addDonation = function(donation) {
     $scope.donations.push(donation);
     
     var paymentDate = donation.Payment.PaymentDate, 
-    paymentHour = paymentDate.split(':')[0], 
+    paymentHour = moment(paymentDate).format('YYYY-MM-DD[T]HH'), 
     paymentPeriod = paymentHour, 
     paymentAmount = Number(donation.Payment.Amount), 
     isRecurringPayment = donation.RecurringPayment ? true : false, 
@@ -168,13 +135,13 @@ dataViewerControllers.controller('DonationSummaryReportViewController', ['$scope
     
     switch($scope.reportconfig.summaryinterval) {
       case 'daily':
-        paymentPeriod = paymentPeriod.split('T')[0];
+        paymentPeriod = moment(paymentDate).format('YYYY-MM-DD');
         break;
       case 'weekly':
-        /* TODO */
+        paymentPeriod = moment(paymentDate).startOf('week').format('YYYY-MM-DD');
         break;
       case 'monthly':
-        paymentPeriod = paymentPeriod.split('T')[0].split('-')[0] + paymentPeriod.split('T')[0].split('-')[1];
+        paymentPeriod = moment(paymentDate).format('YYYY-MM');
         break;
     }
     
@@ -185,32 +152,17 @@ dataViewerControllers.controller('DonationSummaryReportViewController', ['$scope
     });
     
     if(donationSumIndex === -1) {
-      var paymentPeriodFormatted = new Intl.DateTimeFormat('en-us', {
-        month: 'short', 
-        day: 'numeric', 
-        year: 'numeric'
-      }).format(new Date(paymentHour + ':00:00Z')) + ' - ' + new Intl.DateTimeFormat('en-us', {
-        hour12: true, 
-        hour: 'numeric', 
-        minute: '2-digit'
-      }).format(new Date(paymentHour + ':00:00Z'));
+      var paymentPeriodFormatted = moment(paymentDate).format('MMM D, YYYY - h:00a');
       
       switch($scope.reportconfig.summaryinterval) {
         case 'daily':
-          paymentPeriodFormatted = Intl.DateTimeFormat('en-us', {
-            month: 'short', 
-            day: 'numeric', 
-            year: 'numeric'
-          }).format(new Date(paymentHour + ':00:00Z'));
+          paymentPeriodFormatted = moment(paymentDate).format('MMM D, YYYY');
           break;
         case 'weekly':
-          /* TODO */
+          paymentPeriodFormatted = moment(paymentDate).startOf('week').format('[Week of] MMM D, YYYY');
           break;
         case 'monthly':
-          paymentPeriodFormatted = Intl.DateTimeFormat('en-us', {
-            month: 'short', 
-            year: 'numeric'
-          }).format(new Date(paymentHour + ':00:00Z'));
+          paymentPeriodFormatted = moment(paymentDate).format('MMM YYYY');
           break;
       }
       
@@ -261,124 +213,6 @@ dataViewerControllers.controller('DonationSummaryReportViewController', ['$scope
     if(!$scope.$$phase) {
       $scope.$apply();
     }
-  }, 
-  
-  getDonationSums = function(options) {
-    var settings = $.extend({
-      page: '1'
-    }, options || {}),     
-    startDate = moment().subtract(1, 'days').format('YYYY-MM-DD[T]HH:mm:ssZ'), 
-    endDate = moment().format('YYYY-MM-DD[T]HH:mm:ssZ'), 
-    campaignId, 
-    formId;
-    
-    if($scope.reportconfig.startdate !== '') {
-      startDate = $scope.reportconfig.startdate;
-      
-      if($scope.reportconfig.enddate !== '') {
-        endDate = $scope.reportconfig.enddate;
-      }
-    }
-    else if($scope.reportconfig.enddate !== '') {
-      startDate = '1969-12-31T00:00:00';
-      endDate = $scope.reportconfig.enddate;
-    }
-    
-    if($scope.reportconfig.donationcampaign !== '') {
-      campaignId = $scope.reportconfig.donationcampaign;
-    }
-    
-    if($scope.reportconfig.donationform !== '') {
-      formId = $scope.reportconfig.donationform;
-    }
-    
-    WebServicesService.query({
-      statement: 'select TransactionId,' + 
-                 ' Payment.Amount, Payment.PaymentDate,' + 
-                 ' RecurringPayment.OriginalTransactionId, RecurringPayment.Duration' + 
-                 ' from Donation' + 
-                 ' where Payment.PaymentDate &gt;= ' + startDate + ' and Payment.PaymentDate &lt;= ' + endDate + 
-                 (campaignId ? (' and CampaignId = ' + campaignId) : '') + 
-                 (formId ? (' and FormId = ' + formId) : ''), 
-      page: settings.page, 
-      error: function() {
-        /* TODO */
-      }, 
-      success: function(response) {
-        $('.report-table').DataTable().destroy();
-        
-        var $faultstring = $(response).find('faultstring');
-        
-        if($faultstring.length > 0) {
-          /* TODO */
-        }
-        else {
-          var $records = $(response).find('Record');
-          
-          if($records.length !== 0) {
-            $records.each(function() {
-              var transactionId = $(this).find('TransactionId').text(), 
-              $payment = $(this).find('Payment'), 
-              paymentAmount = $payment.find('Amount').text(), 
-              paymentDate = $payment.find('PaymentDate').text(), 
-              $recurringPayment = $(this).find('RecurringPayment'), 
-              originalTransactionId = transactionId, 
-              paymentDuration = 1;
-              
-              var donationData = {
-                'TransactionId': transactionId, 
-                'Payment': {
-                  'Amount': paymentAmount, 
-                  'PaymentDate': paymentDate
-                }
-              };
-              
-              if($recurringPayment.length > 0) {
-                originalTransactionId = $recurringPayment.find('OriginalTransactionId').text();
-                paymentDuration = Number($recurringPayment.find('Duration').text());
-                
-                donationData.RecurringPayment = {
-                  'OriginalTransactionId': originalTransactionId, 
-                  'Duration': paymentDuration
-                };
-              }
-              
-              if(transactionId === originalTransactionId) {
-                if($recurringPayment.length > 0) {
-                  paymentAmount = paymentAmount * 12;
-                  
-                  donationData.Payment.Amount = paymentAmount;
-                }
-                
-                addDonation(donationData);
-              }
-            });
-          }
-          
-          $('.report-table').DataTable({
-            'searching': false, 
-            'info': true, 
-            'paging': true, 
-            'lengthChange': false, 
-            'ordering': true, 
-            'order': [
-              [0, 'desc']
-            ], 
-            'autoWidth': false, 
-            'dom': '<".table-responsive"t>ip'
-          });
-          
-          if($records.length === 200) {
-            getDonationSums({
-              page: '' + (Number(settings.page) + 1)
-            });
-          }
-          else {
-            $('.content .js--loading-overlay').addClass('hidden');
-          }
-        }
-      }
-    });
   };
   
   getDonationSums();
@@ -388,12 +222,12 @@ dataViewerControllers.controller('DonationSummaryReportViewController', ['$scope
     
     $scope.donationsums = [];
     
-    $('.report-table').DataTable().destroy();
+    updateDateRange($scope.reportconfig.datelabel);
+    
+    DataTableService.destroy('.report-table');
     
     $('.content .js--loading-overlay').removeClass('hidden');
     
-    $('.daterangepicker .applyBtn').click();
-
     getDonationSums();
   };
   

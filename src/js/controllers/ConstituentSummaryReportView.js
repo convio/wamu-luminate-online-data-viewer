@@ -1,17 +1,15 @@
-dataViewerControllers.controller('ConstituentSummaryReportViewController', ['$scope', 'DateRangePickerService', 'StorageService', 'WebServicesService', function($scope, DateRangePickerService, StorageService, WebServicesService) {
+dataViewerControllers.controller('ConstituentSummaryReportViewController', ['$scope', 'StorageService', 'ConstituentService', 'DateRangePickerService', 'DataTableService', function($scope, StorageService, ConstituentService, DateRangePickerService, DataTableService) {
   $.AdminLTE.layout.fix();
   
-  $('.daterangepicker').remove();
+  $scope.updateTime = '';
   
-  DateRangePickerService.init('#report-config-datepicker', function (start, end, label) {
-    $scope.reportconfig.datelabel = label;
-    $scope.reportconfig.startdate = start.format('YYYY-MM-DD[T]HH:mm:ssZ');
-    $scope.reportconfig.enddate = end.format('YYYY-MM-DD[T]HH:mm:ssZ');
+  var refreshUpdateTime = function() {
+    $scope.updateTime = 'Updated ' + moment().format('M/D/YYYY h:mma');
     
     if(!$scope.$$phase) {
       $scope.$apply();
     }
-  });
+  };
   
   $scope.reportconfig = $.extend({
     datelabel: 'Last 24 Hours', 
@@ -20,27 +18,72 @@ dataViewerControllers.controller('ConstituentSummaryReportViewController', ['$sc
     summaryinterval: 'hourly'
   }, StorageService.getStoredData('reportconfig_constituents_summary') || {});
   
+  $('.daterangepicker').remove();
+  
+  DateRangePickerService.init('#report-config-datepicker', function (start, end, label) {
+    $scope.reportconfig.datelabel = label;
+    updateDateRange(label);
+  });
+  
+  var updateDateRange = function(label) {
+    DateRangePickerService.getDatesForRange(label, function(start, end) {
+      $scope.reportconfig.startdate = start.format('YYYY-MM-DD[T]HH:mm:ssZ');
+      $scope.reportconfig.enddate = end.format('YYYY-MM-DD[T]HH:mm:ssZ');
+    });
+    
+    if(!$scope.$$phase) {
+      $scope.$apply();
+    }
+  };
+  
   $scope.constituents = [];
   
   $scope.constituentsums = [];
   
-  var addConstituent = function(constituent) {
+  var getConstituentSums = function() {
+    ConstituentService.getConstituents({
+      startDate: $scope.reportconfig.startdate, 
+      endDate: $scope.reportconfig.enddate, 
+      success: function(constituents) {
+        if($scope.$location.path() === '/report-constituents-summary') {
+          DataTableService.destroy('.report-table');
+          
+          if(constituents.length > 0) {
+            $.each(constituents, function() {
+              addConstituent(this);
+            });
+          }
+          
+          DataTableService.init('.report-table');
+        }
+      }, 
+      complete: function() {
+        if($scope.$location.path() === '/report-constituents-summary') {
+          refreshUpdateTime();
+          
+          $('.content .js--loading-overlay').addClass('hidden');
+        }
+      }
+    });
+  }, 
+  
+  addConstituent = function(constituent) {
     $scope.constituents.push(constituent);
     
     var consCreationDate = constituent.CreationDate, 
-    consCreationHour = consCreationDate.split(':')[0], 
+    consCreationHour = moment(consCreationDate).format('YYYY-MM-DD[T]HH'), 
     consCreationPeriod = consCreationHour, 
     constituentSumIndex = -1;
     
     switch($scope.reportconfig.summaryinterval) {
       case 'daily':
-        consCreationPeriod = consCreationPeriod.split('T')[0];
+        consCreationPeriod = moment(consCreationDate).format('YYYY-MM-DD');
         break;
       case 'weekly':
-        /* TODO */
+        consCreationPeriod = moment(consCreationDate).startOf('week').format('YYYY-MM-DD');
         break;
       case 'monthly':
-        consCreationPeriod = consCreationPeriod.split('T')[0].split('-')[0] + consCreationPeriod.split('T')[0].split('-')[1];
+        consCreationPeriod = moment(consCreationDate).format('YYYY-MM');
         break;
     }
     
@@ -51,32 +94,17 @@ dataViewerControllers.controller('ConstituentSummaryReportViewController', ['$sc
     });
     
     if(constituentSumIndex === -1) {
-      var consCreationPeriodFormatted = new Intl.DateTimeFormat('en-us', {
-        month: 'short', 
-        day: 'numeric', 
-        year: 'numeric'
-      }).format(new Date(consCreationHour + ':00:00Z')) + ' - ' + new Intl.DateTimeFormat('en-us', {
-        hour12: true, 
-        hour: 'numeric', 
-        minute: '2-digit'
-      }).format(new Date(consCreationHour + ':00:00Z'));
+      var consCreationPeriodFormatted = moment(consCreationDate).format('MMM D, YYYY - h:00a');
       
       switch($scope.reportconfig.summaryinterval) {
         case 'daily':
-          consCreationPeriodFormatted = Intl.DateTimeFormat('en-us', {
-            month: 'short', 
-            day: 'numeric', 
-            year: 'numeric'
-          }).format(new Date(consCreationHour + ':00:00Z'));
+          consCreationPeriodFormatted = moment(consCreationDate).format('MMM D, YYYY');
           break;
         case 'weekly':
-          /* TODO */
+          consCreationPeriodFormatted = moment(consCreationDate).startOf('week').format('[Week of] MMM D, YYYY');
           break;
         case 'monthly':
-          consCreationPeriodFormatted = Intl.DateTimeFormat('en-us', {
-            month: 'short', 
-            year: 'numeric'
-          }).format(new Date(consCreationHour + ':00:00Z'));
+          consCreationPeriodFormatted = moment(consCreationDate).format('MMM YYYY');
           break;
       }
       
@@ -94,98 +122,20 @@ dataViewerControllers.controller('ConstituentSummaryReportViewController', ['$sc
     if(!$scope.$$phase) {
       $scope.$apply();
     }
-  }, 
-  
-  getConstituentSums = function(options) {
-    var settings = $.extend({
-      page: '1'
-    }, options || {}), 
-    startDate = moment().subtract(1, 'days').format('YYYY-MM-DD[T]HH:mm:ssZ'), 
-    endDate = moment().format('YYYY-MM-DD[T]HH:mm:ssZ');
-    
-    if($scope.reportconfig.startdate !== '') {
-      startDate = $scope.reportconfig.startdate;
-      
-      if($scope.reportconfig.enddate !== '') {
-        endDate = $scope.reportconfig.enddate;
-      }
-    }
-    else if($scope.reportconfig.enddate !== '') {
-      startDate = '1969-12-31T00:00:00';
-      endDate = $scope.reportconfig.enddate;
-    }
-    
-    WebServicesService.query({
-      statement: 'select ConsId, CreationDate' + 
-                 ' from Constituent' + 
-                 ' where CreationDate &gt;= ' + startDate + ' and CreationDate &lt;= ' + endDate, 
-      page: settings.page, 
-      error: function() {
-        /* TODO */
-      }, 
-      success: function(response) {
-        var $faultstring = $(response).find('faultstring');
-        
-        if($faultstring.length > 0) {
-          /* TODO */
-        }
-        else {
-          $('.report-table').DataTable().destroy();
-          
-          var $records = $(response).find('Record');
-          
-          if($records.length !== 0) {
-            $records.each(function() {
-              var consId = $(this).find('ConsId').text(), 
-              consCreationDate = $(this).find('CreationDate').text();
-              
-              var constituentData = {
-                'ConsId': consId, 
-                'CreationDate': consCreationDate
-              };
-              
-              addConstituent(constituentData);
-            });
-          }
-          
-          $('.report-table').DataTable({
-            'searching': false, 
-            'info': true, 
-            'paging': true, 
-            'lengthChange': false, 
-            'ordering': true, 
-            'order': [
-              [0, 'desc']
-            ], 
-            'autoWidth': false, 
-            'dom': '<".table-responsive"t>ip'
-          });
-          
-          if($records.length === 200) {
-            getConstituentSums({
-              page: '' + (Number(settings.page) + 1)
-            });
-          }
-          else {
-            $('.content .js--loading-overlay').addClass('hidden');
-          }
-        }
-      }
-    });
   };
   
   getConstituentSums();
   
   $scope.refreshReport = function() {
+    updateDateRange($scope.reportconfig.datelabel);
+    
     $scope.constituents = [];
     
     $scope.constituentsums = [];
     
-    $('.report-table').DataTable().destroy();
+    DataTableService.destroy('.report-table');
     
     $('.content .js--loading-overlay').removeClass('hidden');
-    
-    $('.daterangepicker .applyBtn').click();
     
     getConstituentSums();
   };
