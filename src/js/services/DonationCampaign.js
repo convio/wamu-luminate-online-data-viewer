@@ -18,7 +18,7 @@ dataViewerApp.factory('DonationCampaignService', ['WebServicesService', function
       }
       else {
         WebServicesService.query({
-          statement: 'select CampaignId, Title, IsArchived' + 
+          statement: 'select CampaignId, Title' + 
                      ' from DonationCampaign', 
           page: settings.page, 
           error: function() {
@@ -40,13 +40,11 @@ dataViewerApp.factory('DonationCampaignService', ['WebServicesService', function
               else {
                 $records.each(function() {
                   var campaignId = $(this).find('CampaignId').text(), 
-                  campaignTitle = $(this).find('Title').text(), 
-                  campaignIsArchived = $(this).find('IsArchived').text() === 'true';
+                  campaignTitle = $(this).find('Title').text();
                   
                   var donationCampaign = {
                     'CampaignId': campaignId, 
-                    'Title': campaignTitle, 
-                    'IsArchived': campaignIsArchived
+                    'Title': campaignTitle
                   };
                   
                   donationCampaigns.push(donationCampaign);

@@ -1,4 +1,4 @@
-dataViewerControllers.controller('DonationSummaryReportViewController', ['$scope', 'StorageService', 'DonationCampaignService', 'DonationFormService', 'DonationService', 'DateRangePickerService', 'DataTableService', function($scope, StorageService, DonationCampaignService, DonationFormService, DonationService, DateRangePickerService, DataTableService) {
+dataViewerControllers.controller('DonationSummaryReportViewController', ['$scope', '$timeout', 'StorageService', 'DonationCampaignService', 'DonationFormService', 'DonationService', 'DateRangePickerService', 'DataTableService', function($scope, $timeout, StorageService, DonationCampaignService, DonationFormService, DonationService, DateRangePickerService, DataTableService) {
   $.AdminLTE.layout.fix();
   
   $scope.updateTime = '';
@@ -101,11 +101,25 @@ dataViewerControllers.controller('DonationSummaryReportViewController', ['$scope
   $scope.donationsums = [];
   
   var getDonationSums = function(options) {
+    var campaignId = '', 
+    formId = '';
+    
+    if($scope.reportconfig.donationcampaign && 
+       $scope.reportconfig.donationcampaign !== '' && 
+       $scope.reportconfig.donationcampaign.CampaignId) {
+      campaignId = $scope.reportconfig.donationcampaign.CampaignId;
+    }
+    if($scope.reportconfig.donationform && 
+       $scope.reportconfig.donationform !== '' && 
+       $scope.reportconfig.donationform.FormId) {
+      formId = $scope.reportconfig.donationform.FormId;
+    }
+    
     DonationService.getDonations({
       startDate: $scope.reportconfig.startdate.format('YYYY-MM-DD[T]HH:mm:ssZ'), 
       endDate: $scope.reportconfig.enddate.format('YYYY-MM-DD[T]HH:mm:ssZ'), 
-      campaignId: $scope.reportconfig.donationcampaign, 
-      formId: $scope.reportconfig.donationform, 
+      campaignId: campaignId, 
+      formId: formId, 
       success: function(donations) {
         if($scope.$location.path() === '/report-donations-summary') {
           DataTableService.destroy('.report-table');
@@ -237,6 +251,15 @@ dataViewerControllers.controller('DonationSummaryReportViewController', ['$scope
     getDonationSums();
   };
   
+  $scope.blurReportConfigTypeAhead = function(e) {
+    $timeout(function() {
+      if($(e.target).is('.ng-invalid-editable')) {
+        $(e.target).val('').change();
+        $scope[$(e.target).data('ng-model')] = '';
+      }
+    }, 250);
+  };
+  
   $scope.updateReportConfig = function(e) {
     $('#report-config-modal').modal('hide');
     
@@ -251,11 +274,11 @@ dataViewerControllers.controller('DonationSummaryReportViewController', ['$scope
       csvData += '\n' + 
                  '"' + this.periodFormatted + '",' + 
                  this.oneTimeCount + ',' + 
-                 this.oneTimeAmountFormatted + ',' + 
+                 this.oneTimeAmount + ',' + 
                  this.recurringCount + ',' + 
-                 this.recurringAmountFormatted + ',' + 
+                 this.recurringAmount + ',' + 
                  this.count + ',' + 
-                 this.amountFormatted;
+                 this.amount;
     });
     
     $('.js--report-save-as').off('change').on('change', function() {

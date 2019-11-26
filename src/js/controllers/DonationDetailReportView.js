@@ -1,4 +1,4 @@
-dataViewerControllers.controller('DonationDetailReportViewController', ['$scope', 'StorageService', 'DonationCampaignService', 'DonationFormService', 'DonationService', 'DateRangePickerService', 'DataTableService', function($scope, StorageService, DonationCampaignService, DonationFormService, DonationService, DateRangePickerService, DataTableService) {
+dataViewerControllers.controller('DonationDetailReportViewController', ['$scope', '$timeout', 'StorageService', 'DonationCampaignService', 'DonationFormService', 'DonationService', 'DateRangePickerService', 'DataTableService', function($scope, $timeout, StorageService, DonationCampaignService, DonationFormService, DonationService, DateRangePickerService, DataTableService) {
   $.AdminLTE.layout.fix();
   
   $scope.updateTime = '';
@@ -98,11 +98,25 @@ dataViewerControllers.controller('DonationDetailReportViewController', ['$scope'
   $scope.donations = [];
   
   var getDonations = function(options) {
+    var campaignId = '', 
+    formId = '';
+    
+    if($scope.reportconfig.donationcampaign && 
+       $scope.reportconfig.donationcampaign !== '' && 
+       $scope.reportconfig.donationcampaign.CampaignId) {
+      campaignId = $scope.reportconfig.donationcampaign.CampaignId;
+    }
+    if($scope.reportconfig.donationform && 
+       $scope.reportconfig.donationform !== '' && 
+       $scope.reportconfig.donationform.FormId) {
+      formId = $scope.reportconfig.donationform.FormId;
+    }
+    
     DonationService.getDonations({
       startDate: $scope.reportconfig.startdate.format('YYYY-MM-DD[T]HH:mm:ssZ'), 
       endDate: $scope.reportconfig.enddate.format('YYYY-MM-DD[T]HH:mm:ssZ'), 
-      campaignId: $scope.reportconfig.donationcampaign, 
-      formId: $scope.reportconfig.donationform, 
+      campaignId: campaignId, 
+      formId: formId, 
       success: function(donations) {
         if($scope.$location.path() === '/report-donations-detail') {
           DataTableService.destroy('.report-table');
@@ -151,6 +165,15 @@ dataViewerControllers.controller('DonationDetailReportViewController', ['$scope'
     getDonations();
   };
   
+  $scope.blurReportConfigTypeAhead = function(e) {
+    $timeout(function() {
+      if($(e.target).is('.ng-invalid-editable')) {
+        $(e.target).val('').change();
+        $scope[$(e.target).data('ng-model')] = '';
+      }
+    }, 250);
+  };
+  
   $scope.updateReportConfig = function(e) {
     $('#report-config-modal').modal('hide');
     
@@ -166,7 +189,7 @@ dataViewerControllers.controller('DonationDetailReportViewController', ['$scope'
                  this.TransactionId + ',' + 
                  this.CampaignId + ',' + 
                  this.FormId + ',' + 
-                 this.Payment._AmountFormatted + ',' + 
+                 this.Payment.Amount + ',' + 
                  '"' + this.Donor.ConsName.FirstName.replace(/"/g, '""') + '",' + 
                  '"' + this.Donor.ConsName.LastName.replace(/"/g, '""') + '",' + 
                  this.Donor.PrimaryEmail + ',' + 
